@@ -1,17 +1,13 @@
-import OpenAI from "openai";
 import { exec } from "child_process";
 import path from "path";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import OpenAI from "openai";
 
 export async function POST(req: Request) {
   try {
     const data = await req.json();
 
     const projectRoot = process.cwd();
-    const pythonPath = "python3"; // Production-safe
+    const pythonPath = "python3";
     const scriptPath = path.join(projectRoot, "chart.py");
 
     return new Promise<Response>((resolve) => {
@@ -26,7 +22,11 @@ export async function POST(req: Request) {
 
           const chartData = JSON.parse(stdout);
 
-          // 🔮 GPT Interpretation
+          // ✅ Initialize OpenAI INSIDE the handler
+          const openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+          });
+
           const completion = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
