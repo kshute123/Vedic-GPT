@@ -1,26 +1,18 @@
-FROM node:20-bullseye
+FROM node:20
 
 # Install Python
-RUN apt-get update && apt-get install -y python3 python3-venv python3-pip
+RUN apt-get update && apt-get install -y python3 python3-pip
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy everything into container
+COPY . .
 
 # Install Node dependencies
 RUN npm install
 
-# Copy everything else
-COPY . .
-
-# Create Python virtual environment
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
 # Install Python dependencies
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+RUN pip3 install --break-system-packages -r requirements.txt
 
 # Build Next.js
 RUN npm run build
