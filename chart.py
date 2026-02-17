@@ -6,28 +6,25 @@ from flatlib.chart import Chart
 from flatlib import const
 
 try:
-    # Get JSON input from Node
     data = json.loads(sys.argv[1])
 
-    # Fix date format (YYYY-MM-DD → YYYY/MM/DD)
     formatted_date = data["date"].replace("-", "/")
 
-    # Parse location
-    lat, lon = data["location"].split(",")
+    lat, lon = map(float, data["location"].split(","))
 
-    # Create Flatlib objects
-    date = Datetime(formatted_date, data["time"], "+00:00")
+    date = Datetime(
+        formatted_date,
+        data["time"],
+        data["timezone"]   # <-- DO NOT hardcode UTC
+    )
+
     pos = GeoPos(lat, lon)
     chart = Chart(date, pos)
 
-    sun = chart.get(const.SUN)
-    moon = chart.get(const.MOON)
-    asc = chart.get(const.ASC)
-
     result = {
-        "sun": sun.sign,
-        "moon": moon.sign,
-        "ascendant": asc.sign
+        "sun": chart.get(const.SUN).sign,
+        "moon": chart.get(const.MOON).sign,
+        "ascendant": chart.get(const.ASC).sign
     }
 
     print(json.dumps(result))

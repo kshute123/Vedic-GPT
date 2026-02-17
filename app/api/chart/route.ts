@@ -1,11 +1,25 @@
 import OpenAI from "openai";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  // 👇 ADD IT HERE
+  console.log("KEY VALUE:", process.env.OPENAI_API_KEY);
+  console.log("KEY LENGTH:", process.env.OPENAI_API_KEY?.length);
+
   try {
+    if (!process.env.OPENAI_API_KEY) {
+      return Response.json(
+        { error: "Server not configured" },
+        { status: 500 }
+      );
+    }
+
+    const client = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
     const body = await req.json();
     const { message, chart } = body;
 
@@ -17,13 +31,12 @@ export async function POST(req: Request) {
     }
 
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini", // safer & stable model
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content: `
 You are a highly skilled Vedic astrologer.
-Interpret charts using Jyotish principles.
 Chart data:
 ${JSON.stringify(chart || {})}
           `,
