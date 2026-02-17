@@ -3,101 +3,75 @@
 import { useState } from "react";
 
 export default function Home() {
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [location, setLocation] = useState("");
-  const [chartData, setChartData] = useState<any>(null);
-  const [interpretation, setInterpretation] = useState("");
-  const [history, setHistory] = useState<any[]>([]);
-  const [message, setMessage] = useState("");
+  const [form, setForm] = useState({
+    date: "",
+    time: "",
+    location: "",
+  });
+
+  const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const generateChart = async () => {
+  const handleSubmit = async () => {
     setLoading(true);
+    setResult("");
 
-    const res = await fetch("/api/chart", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, time, location }),
-    });
+    try {
+      const res = await fetch("/api/chart", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
+      });
 
-    const data = await res.json();
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text);
+      }
 
-    setChartData(data.chart);
-    setInterpretation(data.interpretation);
+      const data = await res.text();
+      setResult(data);
+    } catch (err: any) {
+      console.error(err);
+      setResult("Error: " + err.message);
+    }
 
-    setHistory([
-      { role: "assistant", content: data.interpretation }
-    ]);
-
-    setLoading(false);
-  };
-
-  const sendMessage = async () => {
-    setLoading(true);
-
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chart: chartData,
-        history,
-        message,
-      }),
-    });
-
-    const reply = await res.json();
-
-    const newHistory = [
-      ...history,
-      { role: "user", content: message },
-      reply,
-    ];
-
-    setHistory(newHistory);
-    setMessage("");
     setLoading(false);
   };
 
   return (
-    <main style={{ padding: 40 }}>
+    <div style={{ padding: 40 }}>
       <h1>Vedic Astrology GPT</h1>
 
-      {!chartData && (
-        <div style={{ display: "flex", gap: 10 }}>
-          <input type="date" onChange={(e) => setDate(e.target.value)} />
-          <input type="time" onChange={(e) => setTime(e.target.value)} />
-          <input
-            placeholder="City"
-            onChange={(e) => setLocation(e.target.value)}
-          />
-          <button onClick={generateChart}>
-            {loading ? "Generating..." : "Generate Chart"}
-          </button>
-        </div>
-      )}
+      <input
+        type="date"
+        onChange={(e) => setForm({ ...form, date: e.target.value })}
+      />
 
-      {chartData && (
-        <>
-          <h3>Conversation</h3>
-          <div style={{ marginBottom: 20 }}>
-            {history.map((msg, i) => (
-              <div key={i}>
-                <strong>{msg.role}:</strong> {msg.content}
-              </div>
-            ))}
-          </div>
+      <br /><br />
 
-          <input
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Ask about your chart..."
-          />
-          <button onClick={sendMessage}>
-            {loading ? "Thinking..." : "Send"}
-          </button>
-        </>
-      )}
-    </main>
+      <input
+        type="time"
+        onChange={(e) => setForm({ ...form, time: e.target.value })}
+      />
+
+      <br /><br />
+
+      <input
+        placeholder="Birth location (lat,lon)"
+        onChange={(e) => setForm({ ...form, location: e.target.value })}
+      />
+
+      <br /><br />
+
+      <button onClick={handleSubmit}>
+        {loading ? "Generating..." : "Generate Chart"}
+      </button>
+
+      <br /><br />
+
+      <pre>{result}</pre>
+    </div>
   );
 }
