@@ -1,35 +1,58 @@
-import OpenAI from "openai";
+import { NextResponse } from "next/server";
+import { exec } from "child_process";
+import path from "path";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// IMPORTANT:
+// Do NOT instantiate OpenAI at the top level.
+// Railway builds the app and will crash if the key isn't present during build.
 
 export async function POST(req: Request) {
-  const { chart, history, message } = await req.json();
+  try {
+    const data = await req.json();
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are an expert Vedic astrologer (Jyotish). Base all answers strictly on the provided birth chart data.",
-      },
-      {
-        role: "system",
-        content: `Birth Chart Data: ${JSON.stringify(chart)}`,
-      },
-      ...history,
-      {
-        role: "user",
-        content: message,
-      },
-    ],
-  });
+    const projectRoot = process.cwd();
+    const pythonPath = path.join(projectRoot, "venv/bin/python");
+    const scriptPath = path.join(projectRoot, "chart.py");
 
-  const reply = completion.choices[0].message;
+    return await new Promise<NextResponse>((resolve) => {
+      exec(
+        `${pythonPath} ${scriptPath} '${JSON.stringify(data)}'`,
+        {
+          env: {
+            ...process.env,
+            OPENAI_API_KEY: process.env.OPENAI_API_KEY, // ensure available to python if needed
+          },
+        },
+        (error, stdout, stderr) => {
+          if (error) {
+            console.error("Python error:", stderr);
+            resolve(
+              NextResponse.json(
+                { error: stderr || "Python execution failed" },
+                { status: 500 }
+              )
+            );
+            return;
+          }
 
-  return new Response(JSON.stringify(reply), {
-    headers: { "Content-Type": "application/json" },
-  });
+          try {
+            const parsed = JSON.parse(stdout);
+            resolve(NextResponse.json(parsed));
+          } catch {
+            resolve(
+              NextResponse.json(
+                { error: "Invalid JSON returned from Python", raw: stdout },
+                { status: 500 }
+              )
+            );
+          }
+        }
+      );
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err.message || "Invalid request" },
+      { status: 400 }
+    );
+  }
 }
