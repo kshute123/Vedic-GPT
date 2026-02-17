@@ -1,3 +1,0 @@
-flatlib
-pyswisseph
-timezonefinder
