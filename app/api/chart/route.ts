@@ -7,62 +7,63 @@ export async function POST(req: Request) {
     const data = await req.json();
 
     const projectRoot = process.cwd();
-    const pythonPath = "python3";
     const scriptPath = path.join(projectRoot, "chart.py");
 
-    return new Promise<Response>((resolve) => {
+    // Run Python chart generator
+    const pythonOutput: string = await new Promise((resolve, reject) => {
       exec(
-        `${pythonPath} ${scriptPath} '${JSON.stringify(data)}'`,
-        async (error, stdout, stderr) => {
+        `python3 ${scriptPath} '${JSON.stringify(data)}'`,
+        (error, stdout, stderr) => {
           if (error) {
             console.error("Python error:", stderr);
-            resolve(new Response(stderr, { status: 500 }));
+            reject(stderr);
             return;
           }
-
-          const chartData = JSON.parse(stdout);
-
-          // ✅ Initialize OpenAI INSIDE the handler
-          const openai = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY,
-          });
-
-          const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are an expert Vedic astrologer (Jyotish). Interpret charts using traditional Vedic principles.",
-              },
-              {
-                role: "user",
-                content: `Here is the birth chart data: ${JSON.stringify(
-                  chartData
-                )}. Provide a detailed interpretation.`,
-              },
-            ],
-          });
-
-          const interpretation =
-            completion.choices[0].message.content;
-
-          resolve(
-            new Response(
-              JSON.stringify({
-                chart: chartData,
-                interpretation,
-              }),
-              {
-                headers: { "Content-Type": "application/json" },
-              }
-            )
-          );
+          resolve(stdout);
         }
       );
     });
-  } catch (err) {
+
+    // Parse Python output
+    const chartData = JSON.parse(pythonOutput);
+
+    // Initialize OpenAI ONLY inside handler (prevents build errors)
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    // Ask GPT to interpret chart
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a professional Vedic astrologer. Provide deep, insightful interpretation.",
+        },
+        {
+          role: "user",
+          content: `Here is the birth chart data: ${JSON.stringify(
+            chartData
+          )}. Provide a detailed Vedic astrology reading.`,
+        },
+      ],
+    });
+
+    return new Response(
+      JSON.stringify({
+        chart: chartData,
+        interpretation: completion.choices[0].message.content,
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (err: any) {
     console.error("Server error:", err);
-    return new Response("Server error", { status: 500 });
+    return new Response(
+      JSON.stringify({ error: "Internal server error", details: err }),
+      { status: 500 }
+    );
   }
 }
