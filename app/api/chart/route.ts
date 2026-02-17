@@ -5,23 +5,42 @@ const client = new OpenAI({
 });
 
 export async function POST(req: Request) {
-  const { message, chart } = await req.json();
+  try {
+    const body = await req.json();
+    const { message, chart } = body;
 
-  const completion = await client.chat.completions.create({
-    model: "gpt-5.2",
-    messages: [
-      {
-        role: "system",
-        content: `
+    if (!message) {
+      return Response.json(
+        { error: "Missing message" },
+        { status: 400 }
+      );
+    }
+
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini", // safer & stable model
+      messages: [
+        {
+          role: "system",
+          content: `
 You are a highly skilled Vedic astrologer.
 Interpret charts using Jyotish principles.
 Chart data:
-${JSON.stringify(chart)}
-        `,
-      },
-      { role: "user", content: message },
-    ],
-  });
+${JSON.stringify(chart || {})}
+          `,
+        },
+        { role: "user", content: message },
+      ],
+    });
 
-  return Response.json(completion.choices[0].message);
+    return Response.json({
+      content: completion.choices[0].message.content,
+    });
+
+  } catch (error: any) {
+    console.error("API error:", error);
+    return Response.json(
+      { error: error.message || "Server error" },
+      { status: 500 }
+    );
+  }
 }
