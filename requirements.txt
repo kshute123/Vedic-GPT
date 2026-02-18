@@ -1,3 +1,5 @@
 flatlib
 pyswisseph
 timezonefinder
+flatlib
+pytz
