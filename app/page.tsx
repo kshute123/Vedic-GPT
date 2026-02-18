@@ -8,14 +8,14 @@ type Message = {
 };
 
 export default function Home() {
-  const [city, setCity] = useState("");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
+  const [city, setCity] = useState<string>("");
+  const [date, setDate] = useState<string>("");
+  const [time, setTime] = useState<string>("");
 
   const [chart, setChart] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [input, setInput] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
 
   async function generateChart() {
     setLoading(true);
@@ -30,19 +30,29 @@ export default function Home() {
     setLoading(false);
 
     if (data.error) {
-      setMessages([{ role: "assistant", content: data.error }]);
+      setMessages([
+        { role: "assistant" as const, content: data.error },
+      ]);
       return;
     }
 
     setChart(data.chart);
-    setMessages([{ role: "assistant", content: data.reply }]);
+
+    setMessages([
+      { role: "assistant" as const, content: data.reply },
+    ]);
   }
 
   async function sendMessage() {
     if (!input.trim()) return;
 
-    const newMessages = [...messages, { role: "user", content: input }];
-    setMessages(newMessages);
+    const userMessage: Message = {
+      role: "user",
+      content: input,
+    };
+
+    const updatedMessages: Message[] = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput("");
     setLoading(true);
 
@@ -59,14 +69,19 @@ export default function Home() {
     setLoading(false);
 
     if (data.error) {
-      setMessages([...newMessages, { role: "assistant", content: data.error }]);
+      setMessages([
+        ...updatedMessages,
+        { role: "assistant" as const, content: data.error },
+      ]);
       return;
     }
 
-    setMessages([
-      ...newMessages,
-      { role: "assistant", content: data.reply },
-    ]);
+    const assistantMessage: Message = {
+      role: "assistant",
+      content: data.reply,
+    };
+
+    setMessages([...updatedMessages, assistantMessage]);
   }
 
   return (
@@ -108,8 +123,12 @@ export default function Home() {
                 msg.role === "assistant" ? "#f1f1f1" : "#d1e7ff",
             }}
           >
-            <strong>{msg.role === "assistant" ? "Astrologer" : "You"}:</strong>
-            <div style={{ whiteSpace: "pre-wrap" }}>{msg.content}</div>
+            <strong>
+              {msg.role === "assistant" ? "Astrologer" : "You"}:
+            </strong>
+            <div style={{ whiteSpace: "pre-wrap" }}>
+              {msg.content}
+            </div>
           </div>
         ))}
       </div>
