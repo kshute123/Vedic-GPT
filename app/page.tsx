@@ -3,75 +3,85 @@
 import { useState } from "react";
 
 export default function Home() {
-  const [form, setForm] = useState({
-    date: "",
-    time: "",
-    location: "",
-  });
-
+  const [city, setCity] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async () => {
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
     setLoading(true);
     setResult("");
 
-    try {
-      const res = await fetch("/api/chart", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(form),
-      });
+    const res = await fetch("/api/chart", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        city,
+        date,
+        time,
+      }),
+    });
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text);
-      }
-
-      const data = await res.text();
-      setResult(data);
-    } catch (err: any) {
-      console.error(err);
-      setResult("Error: " + err.message);
-    }
-
+    const data = await res.json();
     setLoading(false);
-  };
+
+    if (data.error) {
+      setResult(`Error: ${data.error}`);
+    } else {
+      setResult(data.interpretation);
+    }
+  }
 
   return (
-    <div style={{ padding: 40 }}>
-      <h1>Vedic Astrology GPT</h1>
+    <main style={{ padding: "2rem", maxWidth: 600 }}>
+      <h1>Vedic GPT</h1>
 
-      <input
-        type="date"
-        onChange={(e) => setForm({ ...form, date: e.target.value })}
-      />
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label>City</label>
+          <input
+            type="text"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            required
+          />
+        </div>
 
-      <br /><br />
+        <div>
+          <label>Date of Birth</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            required
+          />
+        </div>
 
-      <input
-        type="time"
-        onChange={(e) => setForm({ ...form, time: e.target.value })}
-      />
+        <div>
+          <label>Time of Birth</label>
+          <input
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            required
+          />
+        </div>
 
-      <br /><br />
+        <button type="submit" disabled={loading}>
+          {loading ? "Generating..." : "Generate Reading"}
+        </button>
+      </form>
 
-      <input
-        placeholder="Birth location (lat,lon)"
-        onChange={(e) => setForm({ ...form, location: e.target.value })}
-      />
-
-      <br /><br />
-
-      <button onClick={handleSubmit}>
-        {loading ? "Generating..." : "Generate Chart"}
-      </button>
-
-      <br /><br />
-
-      <pre>{result}</pre>
-    </div>
+      {result && (
+        <div style={{ marginTop: "2rem", whiteSpace: "pre-wrap" }}>
+          {result}
+        </div>
+      )}
+    </main>
   );
 }
+
