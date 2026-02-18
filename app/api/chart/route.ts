@@ -6,6 +6,9 @@ import { spawn } from "child_process";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+/**
+ * Convert city name → lat/lon
+ */
 async function geocodeCity(city: string) {
   const response = await fetch(
     `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
@@ -42,13 +45,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1️⃣ Geocode city
+    // 1️⃣ Geocode
     const { lat, lon } = await geocodeCity(city);
 
-    // 2️⃣ Get timezone
+    // 2️⃣ Timezone
     const timezone = tzlookup(lat, lon);
 
-    // 3️⃣ Call Python script
+    // 3️⃣ Call Python
     const pythonPayload = JSON.stringify({
       date,
       time,
@@ -57,24 +60,32 @@ export async function POST(req: Request) {
     });
 
     const chartData: any = await new Promise((resolve, reject) => {
-      const python = spawn("python3", ["chart.py", pythonPayload]);
+      const python = spawn("python3", ["./chart.py", pythonPayload]);
 
-      let result = "";
-      let errorOutput = "";
+      let stdout = "";
+      let stderr = "";
 
       python.stdout.on("data", (data) => {
-        result += data.toString();
+        stdout += data.toString();
       });
 
       python.stderr.on("data", (data) => {
-        errorOutput += data.toString();
+        stderr += data.toString();
       });
 
       python.on("close", (code) => {
         if (code !== 0) {
-          reject(new Error(errorOutput || "Python process failed"));
+          reject(
+            new Error(
+              `Python failed with code ${code}\nSTDERR:\n${stderr}\nSTDOUT:\n${stdout}`
+            )
+          );
         } else {
-          resolve(JSON.parse(result));
+          try {
+            resolve(JSON.parse(stdout));
+          } catch (err) {
+            reject(new Error("Failed to parse Python output:\n" + stdout));
+          }
         }
       });
     });
@@ -92,6 +103,15 @@ export async function POST(req: Request) {
           content: `
 You are a highly skilled Vedic astrologer.
 Interpret charts strictly using Jyotish principles.
+
+Provide:
+- Ascendant analysis
+- Sun & Moon meaning
+- Personality themes
+- Strengths & weaknesses
+- Career indications
+- Relationship patterns
+- Spiritual themes
 
 Chart data:
 ${JSON.stringify(chartData)}
