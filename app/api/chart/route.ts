@@ -6,9 +6,6 @@ import { spawn } from "child_process";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/**
- * Convert city name to lat/lon using OpenStreetMap
- */
 async function geocodeCity(city: string) {
   const response = await fetch(
     `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
@@ -38,7 +35,6 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { city, date, time } = body;
 
-    // Basic validation
     if (!city || !date || !time) {
       return Response.json(
         { error: "Missing city, date, or time" },
@@ -46,13 +42,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1️⃣ Get coordinates
+    // 1️⃣ Geocode city
     const { lat, lon } = await geocodeCity(city);
 
     // 2️⃣ Get timezone
     const timezone = tzlookup(lat, lon);
 
-    // 3️⃣ Call Python chart generator
+    // 3️⃣ Call Python script
     const pythonPayload = JSON.stringify({
       date,
       time,
@@ -76,19 +72,18 @@ export async function POST(req: Request) {
 
       python.on("close", (code) => {
         if (code !== 0) {
-          reject(errorOutput);
+          reject(new Error(errorOutput || "Python process failed"));
         } else {
           resolve(JSON.parse(result));
         }
       });
     });
 
-    // 4️⃣ OpenAI client
+    // 4️⃣ OpenAI
     const client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    // 5️⃣ Auto-generate interpretation
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -97,15 +92,6 @@ export async function POST(req: Request) {
           content: `
 You are a highly skilled Vedic astrologer.
 Interpret charts strictly using Jyotish principles.
-
-Be structured and detailed. Cover:
-- Ascendant meaning
-- Sun & Moon analysis
-- Personality traits
-- Strengths & weaknesses
-- Career tendencies
-- Relationship patterns
-- Spiritual themes
 
 Chart data:
 ${JSON.stringify(chartData)}
@@ -126,10 +112,16 @@ ${JSON.stringify(chartData)}
     });
 
   } catch (error: any) {
-    console.error("API error:", error);
+    console.error("FULL ERROR:", error);
 
     return Response.json(
-      { error: error?.toString() || "Server error" },
+      {
+        error:
+          error?.stack ||
+          error?.message ||
+          error?.toString() ||
+          "Server error",
+      },
       { status: 500 }
     );
   }
