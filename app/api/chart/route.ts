@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+// @ts-ignore
 import tzlookup from "tz-lookup";
 import { spawn } from "child_process";
 
