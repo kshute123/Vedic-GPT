@@ -12,8 +12,8 @@ try:
 
     date_str = data["date"]
     time_str = data["time"]
-    lat, lon = map(float, data["location"].split(","))
-    timezone_name = data["timezone"]
+lon = float(data["lon"])
+timezone_name = data["timezone"]
 
     # Convert to UTC offset
     tz = pytz.timezone(timezone_name)
